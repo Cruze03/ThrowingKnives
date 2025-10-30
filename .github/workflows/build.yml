@@ -92,6 +92,5 @@ jobs:
             ${{ steps.changelog.outputs.changelog }}
           files: |
             ${{ env.PROJECT_NAME }}.zip
-            release-folder/addons/counterstrikesharp/plugins/${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.dll
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
