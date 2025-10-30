@@ -8,7 +8,6 @@ on:
     paths-ignore:
       - LICENSE
       - README.md
-
 env:
   PROJECT_NAME: ThrowingKnives
 
@@ -17,7 +16,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -44,7 +44,6 @@ jobs:
 
   release:
     name: Release
-    if: startsWith(github.ref, 'refs/tags/')
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -83,18 +82,19 @@ jobs:
       - name: Create ZIP package
         run: |
           cd release-folder
-          zip -r ../${{ env.PROJECT_NAME }}.zip addons
+          zip -r ../${{ env.PROJECT_NAME }}-${{ github.ref_name }}.zip addons
           cd ..
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           name: Release ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
           body: |
             ## What's changed
             ${{ steps.changelog.outputs.changelog }}
           files: |
-            ${{ env.PROJECT_NAME }}.zip
+            ${{ env.PROJECT_NAME }}-${{ github.ref_name }}.zip
             release-folder/addons/counterstrikesharp/plugins/${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.dll
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
