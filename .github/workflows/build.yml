@@ -10,9 +10,11 @@ on:
     - README.md
 env:
   PROJECT_NAME: ThrowingKnives
+  GAMEHUD_API: CS2-GameHUDAPI
 
 jobs:
   build:
+    name: Build
     runs-on: ubuntu-latest
 
     steps:
@@ -28,10 +30,12 @@ jobs:
       - name: Create output directory
         run: |
           mkdir -p output/addons/counterstrikesharp/plugins/${{ env.PROJECT_NAME }}
+          mkdir -p output/addons/counterstrikesharp/shared/${{ env.GAMEHUD_API }}
 
       - name: Copy built DLL to output folder
         run: |
           find . -type f -path "*/bin/${{ env.PROJECT_NAME }}/*.dll" -exec cp {} output/addons/counterstrikesharp/plugins/${{ env.PROJECT_NAME }}/${{ env.PROJECT_NAME }}.dll \;
+          cp "*/bin/${{ env.PROJECT_NAME }}/${{ env.GAMEHUD_API }}.dll" output/addons/counterstrikesharp/shared/${{ env.GAMEHUD_API }}
 
       - name: Publish artifact
         uses: actions/upload-artifact@v4
