@@ -53,13 +53,13 @@ public class PluginConfig : BasePluginConfig
     public override int Version { get; set; } = 2;
 }
 
-[MinimumApiVersion(342)]
+[MinimumApiVersion(361)]
 public class Plugin : BasePlugin, IPluginConfig<PluginConfig>
 {
     public override string ModuleName => "Throwing Knives";
     public override string ModuleDescription => "Throwing Knives plugin for CS2";
     public override string ModuleAuthor => "Cruze";
-    public override string ModuleVersion => "1.0.2";
+    public override string ModuleVersion => "1.0.3";
 
     public required PluginConfig Config { get; set; } = new();
 
@@ -133,8 +133,7 @@ public class Plugin : BasePlugin, IPluginConfig<PluginConfig>
     {
         base.Load(hotReload);
         RegisterListener<Listeners.OnMapStart>(OnMapStart);
-
-        VirtualFunctions.CBaseEntity_TakeDamageOldFunc.Hook(OnTakeDamage, HookMode.Pre);
+        RegisterListener<Listeners.OnEntityTakeDamagePre>(OnTakeDamage);
 
         if (hotReload)
         {
@@ -152,8 +151,7 @@ public class Plugin : BasePlugin, IPluginConfig<PluginConfig>
     {
         base.Unload(hotReload);
         RemoveListener<Listeners.OnMapStart>(OnMapStart);
-
-        VirtualFunctions.CBaseEntity_TakeDamageOldFunc.Unhook(OnTakeDamage, HookMode.Pre);
+        RemoveListener<Listeners.OnEntityTakeDamagePre>(OnTakeDamage);
     }
 
     public override void OnAllPluginsLoaded(bool hotReload)
@@ -172,9 +170,8 @@ public class Plugin : BasePlugin, IPluginConfig<PluginConfig>
 
     }
 
-    private HookResult OnTakeDamage(DynamicHook hook)
+    private HookResult OnTakeDamage(CBaseEntity entity, CTakeDamageInfo damageInfo)
     {
-        var entity = hook.GetParam<CEntityInstance>(0);
         if (entity == null || !entity.IsValid || !entity.DesignerName.Equals("player"))
             return HookResult.Continue;
 
@@ -185,8 +182,6 @@ public class Plugin : BasePlugin, IPluginConfig<PluginConfig>
         var player = pawn.OriginalController.Get();
         if (player == null || !player.IsValid)
             return HookResult.Continue;
-
-        var damageInfo = hook.GetParam<CTakeDamageInfo>(1);
 
         var thrownKnife = damageInfo.Inflictor.Value;
 
