@@ -46,11 +46,14 @@ public class PluginConfig : BasePluginConfig
     [JsonPropertyName("KnifeFlags")]
     public List<string> KnifeFlags { get; set; } = [];
 
+    [JsonPropertyName("FriendlyFire")]
+    public bool FriendlyFire { get; set; } = false;
+
     [JsonPropertyName("GameHUDChannel")]
     public int GameHUDChannel { get; set; } = 1;
 
     [JsonPropertyName("ConfigVersion")]
-    public override int Version { get; set; } = 2;
+    public override int Version { get; set; } = 3;
 }
 
 [MinimumApiVersion(361)]
@@ -203,6 +206,16 @@ public class Plugin : BasePlugin, IPluginConfig<PluginConfig>
         if (attacker == null || !attacker.IsValid)
             return HookResult.Continue;
 
+        var attackerController = attacker.OriginalController.Get();
+        
+        // Check for friendly fire - if same team and friendly fire is disabled, destroy knife but don't damage
+        if (attackerController != null && attackerController.IsValid && 
+            player.TeamNum == attackerController.TeamNum && !Config.FriendlyFire)
+        {
+            thrownKnife.AcceptInput("Kill");
+            return HookResult.Handled;
+        }
+
         damageInfo.Inflictor.Raw = attacker.EntityHandle;
         damageInfo.Attacker.Raw = attacker.EntityHandle;
         damageInfo.Ability.Raw = (uint)activeWeapon;
@@ -214,7 +227,15 @@ public class Plugin : BasePlugin, IPluginConfig<PluginConfig>
         return HookResult.Continue;
     }
 
-    public void OnMapStart(string map) { }
+    public void OnMapStart(string map)
+    {
+        // Clear permission cache on map change - permissions will be re-evaluated
+        // when players connect (OnPlayerConnect) and on round start (OnRoundStart).
+        _playerHasPerms.Clear();
+        _knivesAvailable.Clear();
+        _knivesOldPos.Clear();
+        _knivesThrown.Clear();
+    }
 
     public void OnTick()
     {
@@ -222,7 +243,7 @@ public class Plugin : BasePlugin, IPluginConfig<PluginConfig>
 
         foreach (var knife in knives)
         {
-            if (knife == null || !knife.IsValid || knife.AbsOrigin == null || knife.Entity == null || !knife.Entity.Name.StartsWith("tknife_") || !_knivesOldPos.TryGetValue(knife.Index, out var oldpos))
+            if (knife == null || !knife.IsValid || knife.AbsOrigin == null || knife.Entity == null || string.IsNullOrEmpty(knife.Entity.Name) || !knife.Entity.Name.StartsWith("tknife_") || !_knivesOldPos.TryGetValue(knife.Index, out var oldpos))
                 continue;
 
             var knifePos = (Vector3)knife.AbsOrigin;
@@ -269,8 +290,6 @@ public class Plugin : BasePlugin, IPluginConfig<PluginConfig>
         _knivesOldPos.Clear();
         _knivesThrown.Clear();
 
-        if (Config.KnifeAmount == -1) return HookResult.Continue;
-
         for (int i = 0; i < 65; i++)
         {
             _playerCooldownTimers[i]?.Kill();
@@ -280,10 +299,14 @@ public class Plugin : BasePlugin, IPluginConfig<PluginConfig>
                 player.Connected != PlayerConnectedState.PlayerConnected ||
                 player.IsBot || player.IsHLTV) continue;
 
+            // Re-evaluate permissions every round start to catch map-change resets
+            _playerHasPerms[player.Slot] = PlayerHasPerm(player, Config.KnifeFlags);
+
             if (Config.GameHUDChannel != -1)
                 _hudapi?.Native_GameHUD_Remove(player, (byte)Config.GameHUDChannel);
 
-            _knivesAvailable[player.Slot] = Config.KnifeAmount;
+            if (Config.KnifeAmount != -1)
+                _knivesAvailable[player.Slot] = Config.KnifeAmount;
         }
         return HookResult.Continue;
     }
